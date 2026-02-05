@@ -2,7 +2,7 @@
 
 This project implements a reproducible test environment in AWS using Amazon EKS.
 The platform allows developers to deploy and test applications on a separate
-test domain before exposing them on the production domain (nightingaleheart.com).
+test domain before exposing them on the production domain.
 
 The solution includes:
 - Kubernetes (EKS)
@@ -349,7 +349,7 @@ Application teams are expected to manage everything under `apps/<app-name>/`.
 - References the TLS certificate via annotation
 
 Example responsibilities:
-- Hostname (`app.test.nightingaleheart.com`)
+- Hostname (`app.test.example.com`)
 - Path routing
 - Backend service mapping
 
