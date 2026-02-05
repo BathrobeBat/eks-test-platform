@@ -17,7 +17,7 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
     alb.ingress.kubernetes.io/group.name: apps
     alb.ingress.kubernetes.io/group.order: "10"
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:654654611936:certificate/51900e63-1af4-4c2e-b068-887e97250bfc
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:ACCOUNT_ID:certificate/CERTIFICATE_ID
     external-dns.alpha.kubernetes.io/hostname: hello.test.nightingaleheart.com
 spec:
   rules:
