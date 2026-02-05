@@ -8,7 +8,7 @@ metadata:
   name: letsencrypt-dns-prod
 spec:
   acme:
-    email: devops@nightingaleheart.com
+    email: devops@example.com
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-dns-prod
