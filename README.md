@@ -1,3 +1,12 @@
+## Repository Visibility
+
+This repository is a public, sanitized version of a platform implementation
+used for academic and portfolio purposes.
+
+A separate private repository is maintained within the organization to manage
+the actual test environment and ongoing platform ownership.
+
+
 ## Overview
 
 This project implements a reproducible test environment in AWS using Amazon EKS.
