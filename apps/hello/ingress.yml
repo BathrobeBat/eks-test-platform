@@ -1,3 +1,7 @@
+# NOTE:
+# Sensitive identifiers have been replaced with placeholders
+# in the public version of this repository.
+
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,10 +13,10 @@ metadata:
     alb.ingress.kubernetes.io/group.name: apps
     alb.ingress.kubernetes.io/group.order: "10"
 
-    external-dns.alpha.kubernetes.io/hostname: hello.test.nightingaleheart.com
+    external-dns.alpha.kubernetes.io/hostname: hello.test.example.com
 spec:
   rules:
-    - host: hello.test.nightingaleheart.com
+    - host: hello.test.example.com
       http:
         paths:
           - path: /
