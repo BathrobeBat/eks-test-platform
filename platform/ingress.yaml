@@ -2,6 +2,9 @@
 # Legacy shared ingress.
 # Do not modify.
 # Replaced by per-application ingress under apps/*/ingress.yaml
+# NOTE:
+# Sensitive AWS identifiers have been replaced with placeholders
+# in the public version of this repository.
 
 
 
@@ -18,10 +21,10 @@ metadata:
     alb.ingress.kubernetes.io/group.name: apps
     alb.ingress.kubernetes.io/group.order: "10"
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:ACCOUNT_ID:certificate/CERTIFICATE_ID
-    external-dns.alpha.kubernetes.io/hostname: hello.test.nightingaleheart.com
+    external-dns.alpha.kubernetes.io/hostname: hello.test.example.com
 spec:
   rules:
-    - host: hello.test.nightingaleheart.com
+    - host: hello.test.example.com
       http:
         paths:
           - path: /
