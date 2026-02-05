@@ -1,4 +1,4 @@
-This cluster uses the **AWS Load Balancer Controller** to manage ingress resources. 
+### This cluster uses the **AWS Load Balancer Controller** to manage ingress resources. 
 
 
 
