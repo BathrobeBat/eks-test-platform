@@ -1,0 +1,62 @@
+name: Cleanup App from Test (EKS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Type what application folder under apps/ to remove here"
+        required: true
+      confirm:
+        description: "Type DELETE to confirm cleanup"
+        required: true
+
+
+jobs:
+  cleanup:
+    name: Remove application from test cluster
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name platform-test-eks \
+            --region eu-central-1
+
+      - name: Verify app directory exists
+        run: |
+          if [ ! -d "apps/${{ inputs.app }}" ]; then
+            echo "❌ apps/${{ inputs.app }} does not exist"
+            exit 1
+          fi
+
+      - name: Confirm destructive action
+        run: |
+          if [ "${{ inputs.confirm }}" != "DELETE" ]; then
+            echo "❌ Cleanup not confirmed."
+            echo "You must type DELETE exactly to proceed."
+            exit 1
+          fi
+
+          echo "✅ Cleanup confirmed for app: ${{ inputs.app }}"
+
+      - name: Delete application resources
+        run: |
+          echo "🧹 Cleaning up app: ${{ inputs.app }}"
+          kubectl delete -f apps/${{ inputs.app }} --ignore-not-found=true
+
+      - name: Verify no pods remain
+        run: |
+          kubectl get pods -n apps -l app=${{ inputs.app }} || true

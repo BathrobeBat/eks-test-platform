@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-cert-manager-ingress
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: deny-cert-manager-annotations
+      match:
+        resources:
+          kinds:
+            - Ingress
+          namespaces:
+            - apps
+      validate:
+        message: >
+          cert-manager annotations are not allowed.
+          TLS is managed by the platform via AWS ACM and shared ALB.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.metadata.annotations.\"cert-manager.io/cluster-issuer\" }}"
+                operator: NotEquals
+                value: ""
+              - key: "{{ request.object.metadata.annotations.\"cert-manager.io/issuer\" }}"
+                operator: NotEquals
+                value: ""
+              - key: "{{ request.object.metadata.annotations.\"acme.cert-manager.io/http01-edit-in-place\" }}"
+                operator: NotEquals
+                value: ""
+    - name: deny-tls-section
+      match:
+        resources:
+          kinds:
+            - Ingress
+          namespaces:
+            - apps
+      validate:
+        message: >
+          TLS configuration is managed by the platform.
+          Do not define spec.tls in application ingress.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.tls }}"
+                operator: NotEquals
+                value: null

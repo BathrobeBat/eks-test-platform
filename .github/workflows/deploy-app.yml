@@ -1,0 +1,62 @@
+name: Deploy App to Test (EKS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "App name (folder under apps/)"
+        required: true
+        type: string
+
+env:
+  AWS_REGION: eu-central-1
+  NAMESPACE: apps
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push Docker image
+        env:
+          APP: ${{ inputs.app }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE="$ECR_REGISTRY/$APP:$IMAGE_TAG"
+
+          docker build -t "$IMAGE" apps/$APP
+          docker push "$IMAGE"
+
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Setup kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > kubeconfig
+          export KUBECONFIG=$PWD/kubeconfig
+          kubectl version --client
+
+      - name: Render and apply Kubernetes manifests
+        env:
+          APP: ${{ inputs.app }}
+          IMAGE: ${{ env.IMAGE }}
+        run: |
+          export APP_NAME=$APP
+          export CONTAINER_PORT=80
+
+          for f in deployment.yaml service.yaml ingress.yaml; do
+            envsubst < apps/$APP/$f | kubectl apply -n $NAMESPACE -f -
+          done

@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello
+  namespace: apps
+  annotations:
+    kubernetes.io/ingress.class: alb
+
+    alb.ingress.kubernetes.io/group.name: apps
+    alb.ingress.kubernetes.io/group.order: "10"
+
+    external-dns.alpha.kubernetes.io/hostname: hello.test.nightingaleheart.com
+spec:
+  rules:
+    - host: hello.test.nightingaleheart.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello
+                port:
+                  number: 80

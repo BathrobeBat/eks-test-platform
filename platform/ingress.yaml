@@ -1,0 +1,33 @@
+# ⚠️ FROZEN FILE
+# Legacy shared ingress.
+# Do not modify.
+# Replaced by per-application ingress under apps/*/ingress.yaml
+
+
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello
+  namespace: apps
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/group.name: apps
+    alb.ingress.kubernetes.io/group.order: "10"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:654654611936:certificate/51900e63-1af4-4c2e-b068-887e97250bfc
+    external-dns.alpha.kubernetes.io/hostname: hello.test.nightingaleheart.com
+spec:
+  rules:
+    - host: hello.test.nightingaleheart.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello
+                port:
+                  number: 80
