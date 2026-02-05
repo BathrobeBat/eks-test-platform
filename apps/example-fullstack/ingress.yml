@@ -7,10 +7,10 @@ metadata:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/group.name: apps
     alb.ingress.kubernetes.io/group.order: "20"
-    external-dns.alpha.kubernetes.io/hostname: example.test.nightingaleheart.com
+    external-dns.alpha.kubernetes.io/hostname: example.test.example.com
 spec:
   rules:
-    - host: example.test.nightingaleheart.com
+    - host: example.test.example.com
       http:
         paths:
           - path: /
