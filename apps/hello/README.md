@@ -11,7 +11,7 @@ It is used to verify:
 
 ## Access
 
-https://hello.test.nightingaleheart.com
+Omitted in public repo for company privacy
 
 ## Deployment model
 
