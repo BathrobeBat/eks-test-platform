@@ -1,0 +1,159 @@
+# NOTE:
+# Sensitive AWS identifiers have been replaced with placeholders
+# in the public version of this repository.
+
+name: Deploy Fullstack App (Frontend + Backend)
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_app:
+        description: "Backend app folder name (in apps/)"
+        required: true
+        type: string
+      frontend_app:
+        description: "Frontend app folder name (in apps/)"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  NAMESPACE: apps
+  CLUSTER_NAME: platform-test
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ==============================
+      # AWS AUTH (OIDC)
+      # ==============================
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: #AWS-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ==============================
+      # BACKEND
+      # ==============================
+
+      - name: Ensure backend ECR repository exists
+        env:
+          APP: ${{ inputs.backend_app }}
+        run: |
+          aws ecr describe-repositories \
+            --repository-names "$APP" \
+            --region "$AWS_REGION" \
+          || aws ecr create-repository \
+            --repository-name "$APP" \
+            --region "$AWS_REGION"
+
+      - name: Build & push backend Docker image
+        env:
+          APP: ${{ inputs.backend_app }}
+          IMAGE_TAG: ${{ github.sha }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        run: |
+          IMAGE="$ECR_REGISTRY/$APP:$IMAGE_TAG"
+
+          docker build \
+            -f apps/$APP/Dockerfile \
+            -t "$IMAGE" \
+            apps/$APP
+
+          docker push "$IMAGE"
+
+          echo "BACKEND_IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      # ==============================
+      # FRONTEND
+      # ==============================
+
+      - name: Ensure frontend ECR repository exists
+        env:
+          APP: ${{ inputs.frontend_app }}
+        run: |
+          aws ecr describe-repositories \
+            --repository-names "$APP" \
+            --region "$AWS_REGION" \
+          || aws ecr create-repository \
+            --repository-name "$APP" \
+            --region "$AWS_REGION"
+
+      - name: Build & push frontend Docker image
+        env:
+          APP: ${{ inputs.frontend_app }}
+          IMAGE_TAG: ${{ github.sha }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          # 👇 ONLY used by chatbot-apps
+          # Remove for apps without chatbot (Also the line '--build-arg REACT_APP_CHATBOT_URL=${{ secrets.REACT_APP_CHATBOT_URL }} \' 👇)
+          REACT_APP_CHATBOT_URL: ${{ secrets.REACT_APP_CHATBOT_URL }}
+        run: |
+          IMAGE="$ECR_REGISTRY/$APP:$IMAGE_TAG"
+          
+          docker build \
+            --build-arg REACT_APP_CHATBOT_URL=${{ secrets.REACT_APP_CHATBOT_URL }} \
+            -f apps/$APP/Dockerfile \
+            -t "$IMAGE" \
+            apps/$APP
+
+          docker push "$IMAGE"
+
+          echo "FRONTEND_IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      # ==============================
+      # KUBECTL SETUP
+      # ==============================
+
+      - name: Setup kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name $CLUSTER_NAME
+
+          kubectl get nodes
+
+      # ==============================
+      # DEPLOY BACKEND
+      # ==============================
+
+      - name: Deploy backend
+        env:
+          APP: ${{ inputs.backend_app }}
+          IMAGE: ${{ env.BACKEND_IMAGE }}
+        run: |
+          export APP_NAME=$APP
+          export CONTAINER_PORT=8000
+
+          for f in deployment.yml service.yml ingress.yml; do
+            envsubst < apps/$APP/$f | kubectl apply -n $NAMESPACE -f -
+          done
+
+      # ==============================
+      # DEPLOY FRONTEND
+      # ==============================
+
+      - name: Deploy frontend
+        env:
+          APP: ${{ inputs.frontend_app }}
+          IMAGE: ${{ env.FRONTEND_IMAGE }}
+        run: |
+          export APP_NAME=$APP
+          export CONTAINER_PORT=80
+
+          for f in deployment.yml service.yml ingress.yml; do
+            envsubst < apps/$APP/$f | kubectl apply -n $NAMESPACE -f -
+          done
