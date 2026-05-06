@@ -1,62 +1,170 @@
-name: Cleanup App from Test (EKS)
+name: Cleanup Applications from Test (EKS)
 
 on:
   workflow_dispatch:
     inputs:
-      app:
-        description: "Type what application folder under apps/ to remove here"
+      applications:
+        description: >
+          Space separated folder names under apps/.
+          Cluster protected: hello
+          Repository protected: _template, example-fullstack, hello
+          Example:
+          example-backend example-frontend
         required: true
       confirm:
-        description: "Type DELETE to confirm cleanup"
+        description: >
+          Type the EXACT same value as "applications" to confirm deletion.
         required: true
 
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  AWS_REGION: eu-central-1
+  CLUSTER_NAME: platform-test
+  NAMESPACE: apps
 
 jobs:
   cleanup:
-    name: Remove application from test cluster
     runs-on: ubuntu-latest
 
     steps:
+      # ==============================
+      # Checkout (required for push)
+      # ==============================
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
 
+      # ==============================
+      # AWS AUTH (OIDC)
+      # ==============================
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ROLE_ARN }}
-          aws-region: eu-central-1
-
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --name platform-test-eks \
-            --region eu-central-1
+            --region $AWS_REGION \
+            --name $CLUSTER_NAME
 
-      - name: Verify app directory exists
+      # ==============================
+      # Confirm destructive action
+      # ==============================
+      - name: Validate confirmation
         run: |
-          if [ ! -d "apps/${{ inputs.app }}" ]; then
-            echo "❌ apps/${{ inputs.app }} does not exist"
+          if [ "${{ inputs.applications }}" != "${{ inputs.confirm }}" ]; then
+            echo "❌ Confirmation does not match applications input."
             exit 1
           fi
 
-      - name: Confirm destructive action
+      # ==============================
+      # Validate input
+      # ==============================
+      - name: Validate applications
         run: |
-          if [ "${{ inputs.confirm }}" != "DELETE" ]; then
-            echo "❌ Cleanup not confirmed."
-            echo "You must type DELETE exactly to proceed."
-            exit 1
-          fi
+          set -euo pipefail
 
-          echo "✅ Cleanup confirmed for app: ${{ inputs.app }}"
+          PROTECTED_CLUSTER_APPS=("hello")
 
-      - name: Delete application resources
+          for app in ${{ inputs.applications }}; do
+
+            # Cluster protection
+            for protected in "${PROTECTED_CLUSTER_APPS[@]}"; do
+              if [ "$app" == "$protected" ]; then
+                echo "❌ $app is protected in the cluster and cannot be deleted."
+                exit 1
+              fi
+            done
+
+            # Folder must exist in repo
+            if [ ! -d "apps/$app" ]; then
+              echo "❌ apps/$app does not exist in repository."
+              exit 1
+            fi
+
+          done
+
+          echo "✅ Input validated."
+
+      # ==============================
+      # Delete from EKS
+      # ==============================
+      - name: Delete applications from cluster
         run: |
-          echo "🧹 Cleaning up app: ${{ inputs.app }}"
-          kubectl delete -f apps/${{ inputs.app }} --ignore-not-found=true
+          set -euo pipefail
 
-      - name: Verify no pods remain
+          for app in ${{ inputs.applications }}; do
+            echo ""
+            echo "🧹 Cleaning up $app in namespace $NAMESPACE"
+
+            kubectl delete deployment $app -n $NAMESPACE --ignore-not-found=true
+            kubectl delete service $app -n $NAMESPACE --ignore-not-found=true
+            kubectl delete ingress $app -n $NAMESPACE --ignore-not-found=true
+            kubectl delete configmap $app -n $NAMESPACE --ignore-not-found=true
+            kubectl delete secret $app -n $NAMESPACE --ignore-not-found=true
+            kubectl delete pvc $app -n $NAMESPACE --ignore-not-found=true
+
+            echo "🔍 Verifying removal..."
+
+            REMAINING=$(kubectl get all -n $NAMESPACE | grep "^$app" || true)
+
+            if [ -n "$REMAINING" ]; then
+              echo "❌ Some resources still remain for $app"
+              kubectl get all -n $NAMESPACE | grep "^$app" || true
+              exit 1
+            fi
+
+            echo "✅ $app fully removed from cluster"
+          done
+
+      # ==============================
+      # Delete folders from repository
+      # ==============================
+      - name: Remove application folders from repository
         run: |
-          kubectl get pods -n apps -l app=${{ inputs.app }} || true
+          set -euo pipefail
+
+          PROTECTED_REPO_APPS=("_template" "example-fullstack" "hello")
+
+          for app in ${{ inputs.applications }}; do
+
+            # Repo protection
+            for protected in "${PROTECTED_REPO_APPS[@]}"; do
+              if [ "$app" == "$protected" ]; then
+                echo "❌ $app is protected in the repository and cannot be deleted."
+                exit 1
+              fi
+            done
+
+            if [ -d "apps/$app" ]; then
+              echo "🗑 Removing apps/$app from repository"
+              git rm -rf apps/$app
+            else
+              echo "⚠️ apps/$app not found in repository, skipping"
+            fi
+
+          done
+
+      # ==============================
+      # Commit & push
+      # ==============================
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git commit -m "Cleanup: removed ${{ inputs.applications }} from test" || echo "No changes to commit"
+          git push
+
+      # ==============================
+      # Done
+      # ==============================
+      - name: Cleanup completed
+        run: echo "🎉 Cleanup completed successfully."
