@@ -35,7 +35,7 @@ This repository defines a **reproducible Kubernetes application platform on AWS 
 - Enable **self-service application deployments** via CI/CD
 - Separate **stable (frozen) platform infrastructure** from **application-owned configuration**
 
-The repository is intentionally structured so that a future DevOps engineer can take over with minimal context, and so that the same structure can be reused for academic or portfolio purposes.
+The repository is intentionally structured so that a future DevOps engineer can take over with minimal context.
 
 ## Scope & Intentional Limitations
 
@@ -53,7 +53,7 @@ The following areas are **explicitly out of scope** and intentionally not implem
 These omissions are deliberate in order to:
 - Keep the architecture understandable and auditable
 - Focus on platform fundamentals rather than operational scale
-- Serve as a reproducible reference for learning, testing, and academic evaluation
+- Serve as a reproducible reference for learning and testing
 
 ## Operational Lifecycle
 
@@ -112,11 +112,11 @@ Once testing is complete, applications **must be removed** from the test cluster
 
 Cleanup is performed via a dedicated GitHub Actions workflow:
 
-- Requires explicit confirmation (`confirm=DELETE`)
-- Removes all Kubernetes resources for the application
+- Requires explicit confirmation 
+- Removes all Kubernetes resources and repository folders for the application
 - Prevents unused workloads from consuming cluster resources
 
-No cleanup is performed automatically.
+**No cleanup is performed automatically.**
 
 ---
 
@@ -190,21 +190,22 @@ Key integrations:
 repo/
 ├── .github/
 │   └── workflows/
-│       ├── deploy-app.yml          # CI/CD pipeline (build → ECR → deploy)
-│       ├── cleanup-app.yml         # CI/CD cleanup (explicit app removal from test cluster)
-        └── README.md               # CI/CD usage documentation
+│       ├── deploy-app.yml              # CI/CD pipeline (build → ECR → deploy)
+|       ├── deploy-fullstack-app.yml    # CI/CD pipeline (build → ECR → deploy)
+│       ├── cleanup-app.yml             # CI/CD cleanup (explicit app removal from test cluster)
+|       └── README.md                   # CI/CD usage documentation
 │
-├── platform/                       # owned by platform team (FROZEN)
-│   ├── ingress.yaml                # shared ALB ingress
+├── platform/                           # owned by platform team (FROZEN)
+│   ├── ingress.yaml                    # shared ALB ingress
 │   ├── README.md
 │   │
-│   ├── cert-manager/               # TLS infrastructure (FROZEN)
+│   ├── cert-manager/                   # TLS infrastructure (FROZEN)
 │   │   ├── cluster-issuer.yaml
 │   │   ├── cluster-issuer-staging.yaml
 │   │   ├── cluster-issuer-dns01-prod.yaml
 │   │   └── README.md
 │   │
-│   ├── network-policies/           # cluster-level security (FROZEN)
+│   ├── network-policies/               # cluster-level security (FROZEN)
 │   │   ├── default-deny-apps.yml
 │   │   ├── default-deny-egress-apps.yml
 │   │   ├── allow-frontend-to-backend.yml
@@ -212,12 +213,12 @@ repo/
 │   │   ├── backend-egress-internet.yml
 │   │   └── README.md
 │   │
-│   └── policies/                   # admission policies (FROZEN)
+│   └── policies/                       # admission policies (FROZEN)
 │       ├── block-cert-manager-ingress.yml
 │       └── README.md
 │
-├── apps/                           # owned by application teams
-│   ├── _template/                  # reference template (never deployed)
+├── apps/                               # owned by application teams
+│   ├── _template/                      # reference template (never deployed)
 │   │   ├── deployment.yml
 │   │   ├── service.yml
 │   │   ├── ingress.yml
@@ -225,7 +226,7 @@ repo/
 │   │   ├── .env.example.yml
 │   │   └── README.md
 │   │
-│   ├── hello/                      # example single-service app
+│   ├── hello/                          # example single-service app
 │   │   ├── deployment.yml
 │   │   ├── service.yml
 │   │   ├── ingress.yml
@@ -233,7 +234,7 @@ repo/
 │   │   ├── .env.example.yml
 │   │   └── README.md
 │   │
-│   └── example-fullstack/          # frontend + backend reference app
+│   └── example-fullstack/              # frontend + backend reference app
 │       ├── .env.example.md
 │       ├── ingress.yml
 │       ├── network-policy.yml
@@ -250,20 +251,20 @@ repo/
 │           ├── hpa.yml
 │           └── Dockerfile.example.dockerfile
 │
-├── iam/                            # AWS IAM policies (IRSA)
+├── iam/                                # AWS IAM policies (IRSA)
 │   ├── aws-load-balancer-controller-policy.json
 │   ├── cert-manager-dns01-policy.json
 │   ├── external-dns-policy.json
 │   └── README.md
 │
 ├── docs/
-│   ├── architecture.md             # ASCII architecture diagram
+│   ├── architecture.md                 # ASCII architecture diagram
 │   ├── eks.md
 │   ├── ingress.md
 │   ├── security.md
 │   └── troubleshooting.md
 │
-└── README.md                       # main documentation (this file)
+└── README.md                           # main documentation (this file)
 
 ```
 
@@ -497,12 +498,14 @@ Applications are removed using a dedicated CI/CD cleanup workflow.
 
 This workflow:
 - Deletes all application-owned Kubernetes manifests
-- Automatically removes ALB rules and DNS records
+- Removes Kubernetes Ingress resources (ALB rules and DNS records are cleaned up automatically by controllers)
 - Ensures the test cluster returns to an idle state
+- Deletes the application folder in this repository (ensure any required changes are merged or promoted before running cleanup)
 
 The test environment is therefore treated as **ephemeral infrastructure**,
 not a long-lived staging platform.
 
+Cleanup is mandatory before deploying a new iteration of the same application name.
 
 ---
 
@@ -516,7 +519,6 @@ This repository is intended for:
 
 - Platform and DevOps engineers maintaining shared Kubernetes infrastructure
 - Application developers deploying services into a managed test environment
-- Academic reviewers evaluating cloud-native platform design
 - Future maintainers taking over the platform after initial development
 
 The repository prioritizes clarity, documentation, and explicit boundaries over feature completeness.
